@@ -411,13 +411,13 @@ class migration(object):
         if self.sourceType == 'file':
             if 'file_uploads' in details and details['file_uploads'] != []:
                 print('\nFollowing are the files used by the selected set of VServers. Please copy all the required files under “data/files” directory\n')
-                print(f"{'EntityType':<40}{'EntityName':<40}{'fileName':<40}")
+                print(f"{'EntityType':<40}{'EntityName':<40}{'FileName':<40}")
                 print("-" * 90)
                 for upload in details.get("file_uploads", []):
                     print(f"{upload['resource_type']:<40}{upload['resource_name']:<40}{upload['filename']:<40}{'****' if 'password' in upload else ''}")
         if 'password_attributes' in details and details['password_attributes'] != []:
             print('\nFollowing are the password attributes used by the selected set of VServers.\nPlease edit data/migrateconfig.json file for ‘PASSWORD_NEEDED’ string and replace with the actual password values\n')
-            print(f"{'EntityType':<40}{'EntityName':<40}{'password':<40}")
+            print(f"{'EntityType':<40}{'EntityName':<40}{'Password':<40}")
             print("-" * 90)
             for password_attr in details.get("password_attributes", []):
                 print(f"{password_attr['resource_type']:<40}{password_attr['resource_name']:<40}{'****' if 'password' in password_attr else '***'}")
