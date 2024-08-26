@@ -20,7 +20,7 @@ console_log_handler = None
 
 class migration(object):
     def __init__(self, source, adm_type, adm_ip, adm_username, adm_password, adm_svc_url, adm_svc_client_id, adm_svc_client_secret, operation, sourceType, target='', vservers=None, passwords=None):
-        # ADM details
+        # NetScaler Console details
         self.adm_type = adm_type
         self.adm_ip = adm_ip
         self.adm_username = adm_username
@@ -240,7 +240,7 @@ class migration(object):
             self.logger.info(f"NetScaler {target} found with ID: {target_id}")
         except BaseException as e:
             self.logger.critical(
-                f"NetScaler {target} not found. Check if it is added in ADM")
+                f"NetScaler {target} not found. Check if it is added in NetScaler Console")
             raise e
         if out['ns'][0]['instance_state'] == "Down":
             self.logger.critical(f"NetScaler {target} is in Down state. Please check the state of the NetScaler")
@@ -812,23 +812,23 @@ class migration(object):
     
     def logout_from_adm_svc(self):
         try:
-            self.logger.info('Logging out from ADM.')
+            self.logger.info('Logging out from NetScaler Console.')
             url = 'https://'+self.adm_svc_url+'/nitro/v1/config/login'
             method = 'DELETE'
             headers = {'Content-Type': 'application/json', 'Cookie': 'SESSID='+self.sessionid}
             response = self.send_curl_request(url, method, None, headers)
             if response.status_code == 200 and response.json()['username'] != "" and response.json()['tenant_id'] != "" and response.json()['tenant_name'] == self.tenant_name:
-                self.logger.info(f"Logout from ADM ({self.adm_svc_url}) successful.")
+                self.logger.info(f"Logout from NetScaler Console ({self.adm_svc_url}) successful.")
             else:
                 self.logger.critical("Logout failed. Status code:", response.status_code)
         except Exception as e:
-            self.error = "Error in logging out from ADM: " + str(e)
+            self.error = "Error in logging out from NetScaler Console: " + str(e)
             self.logger.critical(self.error)
             return None
         
     def logout_from_adm_onprem(self):
         try:
-            self.logger.info('Logging out from ADM.')
+            self.logger.info('Logging out from NetScaler Console.')
             url = 'http://'+self.adm_ip+'/nitro/v1/config/login'
             method = 'DELETE'
             headers = {'Content-Type': 'application/json', 'Cookie': 'SESSID='+self.sessionid}
@@ -838,11 +838,11 @@ class migration(object):
 
             # Check the response
             if response.status_code == 200 and response.json()['username'] == adm_username and response.json()['tenant_id'] != "":
-                self.logger.info(f"Logout from ADM ({self.adm_ip}) successful.")
+                self.logger.info(f"Logout from NetScaler Console ({self.adm_ip}) successful.")
             else:
                 self.logger.critical("Logout failed. Status code:", response.status_code)
         except Exception as e:
-            self.error = "Error in logging out from ADM: " + str(e)
+            self.error = "Error in logging out from NetScaler Console: " + str(e)
             self.logger.critical(self.error)
             return None
 
@@ -866,7 +866,7 @@ class migration(object):
 
             # Check the response
             if response.status_code == 200:
-                self.logger.info(f"Login to ADM ({self.adm_svc_url}) successful.")
+                self.logger.info(f"Login to NetScaler Console ({self.adm_svc_url}) successful.")
                 # Extract session ID from cookies if present
                 response_payload = response.json()
                 session_id = response_payload["login"][0]["sessionid"]
@@ -879,7 +879,7 @@ class migration(object):
             else:
                 self.logger.critical("Login failed. Status code:", response.status_code)
         except Exception as e:
-            self.error = "Error in logging in to ADM Svc. Check the ADM URL, Client ID and Client secret. Make sure the ADM is reachable."
+            self.error = "Error in logging in to NetScaler Console Svc. Check the NetScaler Console URL, Client ID and Client secret. Make sure the NetScaler Console is reachable."
             self.logger.critical(self.error)
             raise e
 
@@ -897,7 +897,7 @@ class migration(object):
 
             # Check the response
             if response.status_code == 200:
-                self.logger.info(f"Login to ADM ({self.adm_ip}) successful.")
+                self.logger.info(f"Login to NetScaler Console ({self.adm_ip}) successful.")
                 # Extract session ID from cookies if present
                 session_id = self.get_session_id(response.cookies)
                 if session_id:
@@ -908,19 +908,19 @@ class migration(object):
             else:
                 self.logger.critical("Login failed. Status code:", response.status_code)
         except Exception as e:
-            self.error = "Error in logging in to ADM On-prem. Check the ADM IP, username and password. Make sure the ADM is reachable."
+            self.error = "Error in logging in to NetScaler Console On-prem. Check the NetScaler Console IP, username and password. Make sure the NetScaler Console is reachable."
             self.logger.critical(self.error)
             raise e
     
     def login_to_adm(self):
         try:
-            self.logger.info('Logging in to ADM')
+            self.logger.info('Logging in to NetScaler Console')
             if self.adm_type == 'service':
                 self.login_to_adm_service()
             else:
                 self.login_to_adm_onprem()
         except Exception as e:
-            self.error = "Error in logging in to ADM"
+            self.error = "Error in logging in to NetScaler Console"
             self.logger.critical(self.error)
             raise e
 
@@ -977,12 +977,12 @@ def arg_parse(argv):
     parser.add_argument(
         '-adm',
         '--adm',
-        help="Provide ADM IP address", 
+        help="Provide NetScaler Console IP address", 
         required=True)
     parser.add_argument(
         '-target',
         '--target',
-        help="IPAddress of the NetScaler that is being managed by ADM. This is required by the migration workflow to parse the input configuration file.")
+        help="IPAddress of the NetScaler that is being managed by NetScaler Console. This is required by the migration workflow to parse the input configuration file.")
     parser.add_argument(
         '-extractvservers', 
         action='store_true', 
@@ -1005,7 +1005,7 @@ def arg_parse(argv):
 
     adm_type = os.getenv('ADM_TYPE')
     if not adm_type:
-        print("Expect to find an environment variable called ADM_TYPE with the ADM type (onprem or service)")
+        print("Expect to find an environment variable called ADM_TYPE with the NetScaler Console type (onprem or service)")
         sys.exit(1)
 
     if adm_type == 'onprem':
@@ -1013,24 +1013,24 @@ def arg_parse(argv):
             adm_ip = args.adm
         adm_username = os.getenv('ADM_USERNAME')
         if not adm_username:
-            print("Expect to find an environment variable called ADM_USERNAME with the ADM username")
+            print("Expect to find an environment variable called ADM_USERNAME with the NetScaler Console username")
             sys.exit(1)
 
         adm_password = os.getenv('ADM_PASSWORD')
         if not adm_password:
-            print("Expect to find an environment variable called ADM_PASSWORD with the ADM password")
+            print("Expect to find an environment variable called ADM_PASSWORD with the NetScaler Console password")
             sys.exit(1)
     else:
         if args.adm:
             adm_svc_url = args.adm
         adm_svc_client_id = os.getenv('ADM_SVC_CLIENT_ID')
         if not adm_svc_client_id:
-            print("Expect to find an environment variable called ADM_SVC_CLIENT_ID with the ADM Service Client ID")
+            print("Expect to find an environment variable called ADM_SVC_CLIENT_ID with the NetScaler Console Service Client ID")
             sys.exit(1)
 
         adm_svc_client_secret = os.getenv('ADM_SVC_CLIENT_SECRET')
         if not adm_svc_client_secret:
-            print("Expect to find an environment variable called ADM_SVC_CLIENT_SECRET with the ADM Service Client Secret")
+            print("Expect to find an environment variable called ADM_SVC_CLIENT_SECRET with the NetScaler Console Service Client Secret")
             sys.exit(1)
 
 
@@ -1062,9 +1062,9 @@ def arg_parse(argv):
         sys.exit(1)
     if adm_ip == '' and adm_svc_url == '':
         if adm_ip == '':
-            print('Please provide ADM Server IP')
+            print('Please provide the NetScaler Console Server IP')
         elif adm_svc_url == '':
-            print('Please provide ADM Service URL')
+            print('Please provide the NetScaler Console Service URL')
         sys.exit(1)
 
     if operation == '':

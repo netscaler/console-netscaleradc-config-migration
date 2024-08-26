@@ -6,8 +6,8 @@ is_valid_file=false
 is_valid_adm_ip=false
 
 echo "Select the setup type:"
-echo "1. ADM On-Prem"
-echo "2. ADM Service"
+echo "1. NetScaler Console On-Prem"
+echo "2. NetScaler Console Service"
 
 while true; do
     # Read user input
@@ -30,42 +30,42 @@ while true; do
 done
 
 if [ "$adm_type" == "onprem" ]; then
-    echo "You have selected ADM On-Prem setup"
+    echo "You have selected NetScaler Console On-Prem setup"
     # get adm IP
-    echo -n "Provide the ADM IP address: "
+    echo -n "Provide the NetScaler Console IP address: "
     read adm_ip
 
-    # Check if the ADM IP is a valid IP
+    # Check if the NetScaler Console IP is a valid IP
     if [[ $adm_ip =~ ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$ ]]; then
         is_valid_adm_ip=true
     else
-        echo "Invalid ADM IP. ADM IP should be a valid IP address"
+        echo "Invalid NetScaler Console IP. NetScaler Console IP should be a valid IP address"
         exit 1
     fi
 
     # get adm username
-    echo -n "Provide the ADM username: "
+    echo -n "Provide the NetScaler Console username: "
     read adm_username
 
     # get adm password
-    echo -n "Provide the ADM password: "
+    echo -n "Provide the NetScaler Console password: "
     read -s adm_password
 
     adm="$adm_ip"
 else
     # get adm svc URL
-    echo -n "Provide the ADM Service URL: "
+    echo -n "Provide the NetScaler Console Service URL: "
     read adm_svc_url
 
     # get adm svc client ID
-    echo -n "Provide the ADM Service Client ID: "
+    echo -n "Provide the NetScaler Console Service Client ID: "
     read adm_svc_client_id
 
     # get adm svc client secret
-    echo -n "Provide the ADM Service Client Secret: "
+    echo -n "Provide the NetScaler Console Service Client Secret: "
     read -s adm_svc_client_secret
 
-    echo "You have selected ADM Service setup"
+    echo "You have selected NetScaler Console Service setup"
 
     adm="$adm_svc_url"
 fi
@@ -135,7 +135,7 @@ set -x
 
 export ADM_TYPE="$adm_type"
 
-# Combine the ADM parameters
+# Combine the NetScaler Console parameters
 
 # Run the Python script with the parameters
 if [[ -n $target ]]; then
