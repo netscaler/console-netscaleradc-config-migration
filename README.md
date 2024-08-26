@@ -4,7 +4,7 @@
     Client machine with shell terminal, access to NetScaler Console
     
 # Introduction to NetScaler Configuration Migration Script
-This repository contains a user-interactive shell script designed to facilitate the migration of NetScaler's application configurations in Application Delivery Management (ADM) systems. The script is compatible with both on-premises NetScaler Console and NetScaler Console Service. It makes use of NetScaler Console APIs for migrating application condifurations from either a source ns.conf or a source NetScaler (managed by Console) to another target NetScaler.
+This repository contains a user-interactive shell script designed to facilitate the migration of NetScaler's application configurations in NetScaler Console systems. The script is compatible with both on-premises NetScaler Console and NetScaler Console Service. It makes use of NetScaler Console APIs for migrating application configurations from either a source ns.conf or a source NetScaler (managed by Console) to another target NetScaler.
 
 # Usage
 To execute the script, run the following command in your terminal:
@@ -12,10 +12,10 @@ To execute the script, run the following command in your terminal:
 
 The script will guide you through the following steps:
 
-    1. Setup Type Selection: Choose between 'ADM On-Prem' or 'ADM Service'.
+    1. Setup Type Selection: Choose between 'On-Prem NetScaler Console' or 'NetScaler Console Service'.
     2. Credentials Input: Depending on your previous choice, you will be asked to provide:
-            * For 'ADM On-Prem': ADM IP address, username, and password.
-            * For 'ADM Service': ADM Service URL, Client ID, and Client Secret.
+            * For 'On-Prem NetScaler Console': On-prem NetScaler Console IP address, username, and password.
+            * For 'NetScaler Console Service': NetScaler Console Service URL, Client ID, and Client Secret.
     3. Source Specification: Provide the NetScaler IP address or the path to the NS.CONF file.
     4. Operation Selection: Choose an operation to perform:
             * Discover all Vservers in the configuration
