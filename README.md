@@ -7,7 +7,7 @@
 This repository contains a user-interactive shell script designed to facilitate the migration of NetScaler's application configurations in NetScaler Console systems. The script is compatible with both on-premises NetScaler Console and NetScaler Console Service. It makes use of NetScaler Console APIs for migrating application configurations from either a source ns.conf or a source NetScaler (managed by Console) to another target NetScaler.
 
 # Usage
-To execute the script, run the following command in your terminal:
+To execute the script, run the following command from the config_migration directory in your terminal:
 ./config_migrate.sh
 
 The script will guide you through the following steps:
@@ -42,3 +42,14 @@ The script will guide you through the following steps:
 
 # After the Migrate Config Step, 
     Upon successful completion of the 'Migrate Config' step, the specified configuration is seamlessly applied to the target NetScaler.
+
+# Requirements
+    To run the config_migrate.py Python script, you would need:
+
+        Python Environment: Python needs to be installed on your machine. The version of Python is 3.9
+
+        Python Libraries: The script imports several Python libraries. Some of these are part of the Python Standard Library and are included with Python. Others, like requests, need to be installed separately. You can do this with the help of requirements.txt. Run the following command from the root directory to install the necessary libraries,
+        ```pip install -r requirements.txt
+        ```
+
+        Operating System Permissions: Since the script reads from or writes to certain files or directories, you would need to have the appropriate permissions to do so.
