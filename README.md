@@ -49,7 +49,6 @@ The script will guide you through the following steps:
         Python Environment: Python needs to be installed on your machine. The version of Python is 3.9
 
         Python Libraries: The script imports several Python libraries. Some of these are part of the Python Standard Library and are included with Python. Others, like requests, need to be installed separately. You can do this with the help of requirements.txt. Run the following command from the root directory to install the necessary libraries,
-        ```pip install -r requirements.txt
-        ```
-
+            pip install -r requirements.txt
+        
         Operating System Permissions: Since the script reads from or writes to certain files or directories, you would need to have the appropriate permissions to do so.
