@@ -51,6 +51,7 @@ class migration(object):
         self.cli_commands = None
         self.configpackid = None
         self.error = None
+        self.sequence_id = None
 
         # extract_vservers_config API payload
         self.targetNS_to_vservers_mapping = []
@@ -68,9 +69,9 @@ class migration(object):
             self.target_id = self.fetch_device_id(self.target)
 
         api_payload = self.create_extract_vservers_payload()
-        api_response = self.extract_vservers(api_payload)
+        api_response, sequence_id = self.extract_vservers(api_payload)
         vservers_response_data = api_response.get('vservers', [])
-        self.write_to_vservers_file(vservers_response_data)
+        self.write_to_vservers_file(vservers_response_data, sequence_id)
         extract_vservers_response = self.print_info(stage_number=1)
 
     def perform_extract_vservers_config_operation(self):
@@ -88,10 +89,10 @@ class migration(object):
             future = executor.submit(self.extract_vservers_config, api_payload, vserver_names)
             try:
                 # Get the result of the API call
-                result = future.result()
+                result, sequence_id = future.result()
                 if result is not None:
                     self.logger.info('Successfully Extracted the Vserver specific configuration')
-                    self.save_extract_vservers_config_data(result)
+                    self.save_extract_vservers_config_data(result, sequence_id)
                     self.print_files_and_password_details()
                     self.print_info(stage_number=2)
                 else:
@@ -132,6 +133,12 @@ class migration(object):
         try:
             if self.sourceType == 'file':
                 self.get_cli_commands()
+            
+            # Fetch the sequence id
+            if operation == 'extract_vservers_config':
+                self.get_sequence_id('data/selected_vservers.json')
+            elif operation == 'migrate_vservers_config':
+                self.get_sequence_id('data/migrateconfig.json')
             
             # Extract vservers operation
             if operation == 'extract_vservers':
@@ -300,7 +307,15 @@ class migration(object):
             self.logger.critical(f"Error in creating the NetScaler to VServer mapping. Check if VServer details are correctly specified in the {self.vservers} file and make sure the file is present in the location")
             raise e
 
-    
+    def get_sequence_id(self, filepath):
+        try:
+            with open(filepath, 'r') as file:
+                data = json.load(file)
+            self.sequence_id = data['migration'].get('sequence_id', None)
+        except Exception as e:
+            self.logger.critical(f"Error in reading the sequence id from the {filepath} file")
+            raise e
+
     def get_cli_commands(self):
         try:
             config_commands = []
@@ -346,6 +361,8 @@ class migration(object):
             payload["adc_config"]["target"]["instance_id"] = self.target_id
             payload["adc_config"]["vservers"] = vservers_list
             payload["adc_config"]["skip_global_audit"] = True
+            if self.sequence_id is not None:
+                payload["adc_config"]["sequence_id"] = self.sequence_id
             return payload            
         except Exception as e:
             self.logger.critical("Error in creating the Extract VServers Configuration API payload")
@@ -367,12 +384,14 @@ class migration(object):
             payload["adc_config"]["vservers"] = vservers
             payload["adc_config"]["file_uploads"] = file_uploads
             payload["adc_config"]["password_attributes"] = password_attributes
+            if self.sequence_id is not None:
+                payload["adc_config"]["sequence_id"] = self.sequence_id
             return payload            
         except Exception as e:
             self.logger.critical("Error in creating the Migrate Configuration API payload")
             raise e
 
-    def save_extract_vservers_config_data(self, result):
+    def save_extract_vservers_config_data(self, result, sequence_id=None):
         file_path = 'data/migrateconfig.json'
         data_to_store = {"migration": {}}
 
@@ -388,6 +407,8 @@ class migration(object):
             self.logger.critical("Error in reading/updating the files and passwords details in data/migrateconfig.json")
             raise e
         data_to_store['migration'] = result
+        if sequence_id is not None:
+            data_to_store['migration']['sequence_id'] = sequence_id
         try:
             # rewrite the updated data to the file
             with open(file_path, 'w') as file:
@@ -435,6 +456,7 @@ class migration(object):
         except Exception as e:
             self.logger.critical("Error in removing the data/migrateconfig.json file")
             raise e
+    
     def read_file_and_convert_to_json(self, file_path):
         try:
             with open(file_path, 'rb') as file:
@@ -475,7 +497,7 @@ class migration(object):
             self.logger.critical(f"Error in creating the migrate config API payload. Check if the passwords are specified correctly in this file - {self.passwords}. Check if the file is available at the location.{str(e)}")
             raise e
     
-    def write_to_vservers_file(self, vservers_response_data):
+    def write_to_vservers_file(self, vservers_response_data, sequence_id=None):
         try:
             data_to_store = {"migration": {
                 "vservers": []
@@ -492,6 +514,9 @@ class migration(object):
                                 vserver[key[8:]] = vserver.pop(key)
 
             data_to_store['migration']['vservers'] = vservers_response_data
+
+            if sequence_id is not None:
+                data_to_store['migration']['sequence_id'] = sequence_id
 
             if not os.path.exists('data'):
                 os.makedirs('data')
@@ -637,12 +662,12 @@ class migration(object):
                 result = self.get_request(request_url)
                 if self.error:
                     self.logger.critical(self.error)
-                    return None
+                    return None, None
 
                 if result and 'errorcode' in result and result['errorcode'] != 0:
                     self.error = result['message']
                     self.logger.critical(self.error)
-                    return None
+                    return None, None
 
                 if not 'job' in result or not 'progress_info' in result['job'] or len(result['job']['progress_info']) == 0:
                     # progress is not yet returned
@@ -670,9 +695,10 @@ class migration(object):
                         break
                 self.error = last_progress['reason']
                 self.logger.critical(self.error)
-                return None
+                return None, None
             elif status.lower() in ['completed', 'success']:
                 result_obj = result['job']['result'].get('adc_config', {})
+                sequence_id = result['job']['result'].get('sequence_id', None)
                 if operation == 'extract_vservers_config':
                     if 'vis_configs' in result_obj:
                         result_obj.pop('vis_configs')
@@ -688,15 +714,15 @@ class migration(object):
                         result_obj.pop('unsupported_config')
                     if 'global_config' in result_obj:
                         result_obj.pop('global_config')
-                return result_obj
+                return result_obj, sequence_id
 
             self.error = last_progress['message']
             self.logger.critical(self.error)
-            return None
+            return None, None
         except Exception as e:
             self.error = "Error in fetching job status: " + str(e)
             self.logger.critical(self.error)
-            return None
+            return None, None
     
     def print_time_taken(self, operation, start_time, end_time):
         time_taken = end_time - start_time
@@ -725,21 +751,21 @@ class migration(object):
             result = requests.post(request_url, json=request_payload, headers=headers)
             if self.error:
                 self.logger.critical(self.error)
-                return None
+                return None, None
 
             if result and 'errorcode' in result and result['errorcode'] != 0:
                 self.error = result['message']
                 self.logger.critical(self.error)
-                return None
+                return None, None
             job_id = result.json()['job']['job_id']
-            result = self.get_job_status(job_id, self.operation)
+            result, sequence_id = self.get_job_status(job_id, self.operation)
             end_time = time.time()
             self.print_time_taken('extract_vservers', start_time, end_time)
-            return result
+            return result, sequence_id
         except Exception as e:
             self.error = "Error in extracting vservers"
             self.logger.critical(self.error)
-            return None
+            return None, None
 
     def extract_vservers_config(self, request_payload, vserver_names):
         try:
@@ -765,10 +791,10 @@ class migration(object):
                 return None
 
             job_id = result.json()['job']['job_id']
-            result = self.get_job_status(job_id, self.operation)
+            result, sequence_id = self.get_job_status(job_id, self.operation)
             end_time = time.time()
             self.print_time_taken(self.operation, start_time, end_time)
-            return result
+            return result, sequence_id
         except Exception as e:
             self.error = "Error in extracting VServer specific configuration"
             self.logger.critical(self.error)
@@ -801,7 +827,7 @@ class migration(object):
             job_id = result.json()['job']['job_id']
             self.configpackid = job_id
             job_id = result.json()['job']['job_id']
-            result = self.get_job_status(job_id, self.operation)
+            result, sequence_id = self.get_job_status(job_id, self.operation)
             end_time = time.time()
             self.print_time_taken(self.operation, start_time, end_time)
             return result
@@ -972,13 +998,15 @@ def arg_parse(argv):
         '-source',
         '--source',
         help="Provide the input NS.CONF file path or source NetScaler IP address",
-        default='', 
-        required=True)
+        default='',
+        required=True
+        )
     parser.add_argument(
         '-adm',
         '--adm',
-        help="Provide NetScaler Console IP address", 
-        required=True)
+        help="Provide NetScaler Console IP address",
+        required=True
+        )
     parser.add_argument(
         '-target',
         '--target',
