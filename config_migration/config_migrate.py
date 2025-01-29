@@ -33,7 +33,7 @@ class migration(object):
         self.tenant_name = ''
 
         self.operation = operation
-        self.protocol = 'http'
+        self.protocol = 'https'
         self.basepath = '/stylebook/nitro/v2/config'
         self.endpoint = '/adc_configs/actions'
         self.sessionid = None
@@ -232,15 +232,17 @@ class migration(object):
 
     def fetch_device_id(self, target):
         try:
+            verify = True
             if self.adm_type == 'service':
                 protocol = 'https'
                 headers = self.get_service_header(self.sessionid, 'True')
                 url = "{}://{}/nitro/v1/config/ns?filter=ip_address:{}".format(protocol, self.adm_svc_url, target)
             else:
-                protocol = 'http'
+                protocol = 'https'
                 headers = self.get_onprem_header(self.sessionid, '')
                 url = "{}://{}/nitro/v1/config/ns?filter=ip_address:{}".format(protocol, self.adm_ip, target)
-            r = self.do_get(url, headers)
+                verify = False
+            r = self.do_get(url, headers, verify)
             self.logger.info(r.status_code)
             out = r.json()
             target_id = out['ns'][0]['id']
@@ -255,12 +257,16 @@ class migration(object):
         else:
             return target_id
             
-    def do_get(self, url, headers):
+    def do_get(self, url, headers, verify):
         i = 0
         reattempt_count = 5
         while True:
             try:
-                r = requests.get(url, headers=headers)
+                try:
+                    r = requests.get(url, headers=headers, verify=verify)
+                except Exception as e:
+                    self.logger.critical(e)
+                    raise e
                 if r.status_code == 401:
                     self.logger.info("Session expired. Will relogin")
                     sessionid = self.login_to_adm()
@@ -269,6 +275,7 @@ class migration(object):
                     else:
                         headers = self.get_onprem_header(sessionid, '')
                     continue
+                
                 return r
                 break
             except (ConnectionError, ValueError):
@@ -630,10 +637,10 @@ class migration(object):
             self.logger.critical(f"{url} - POST API request Failed")
             raise e
 
-    def get_request(self, url):
+    def get_request(self, url, verify):
         try:
             headers = self.get_request_headers()
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, verify=verify)
             return self.parse_response(response)
         except Exception as e:
             self.logger.critical(f"{url} - GET API request Failed")
@@ -651,15 +658,17 @@ class migration(object):
     def get_job_status(self, job_id, operation):
         try:
             self.logger.info("Fetching the job status")
+            verify = True
             if self.adm_type == 'service':
                 request_url = 'https://' + self.adm_svc_url + self.basepath + '/jobs/' + job_id
             else:
                 request_url = self.protocol + '://' + self.adm_ip +  self.basepath + '/jobs/' + job_id
+                verify = False
             #sometimes, JOB-ID is created with a little delay.. so introducing sleep
             time.sleep(5)
             last_progress = {}
             while True:
-                result = self.get_request(request_url)
+                result = self.get_request(request_url, verify)
                 if self.error:
                     self.logger.critical(self.error)
                     return None, None
@@ -745,10 +754,11 @@ class migration(object):
             if self.adm_type == 'service':
                 request_url = 'https://' + self.adm_svc_url + self.basepath + self.endpoint + '/' + self.operation
                 headers = self.get_service_header(self.sessionid, 'true')
+                result = requests.post(request_url, json=request_payload, headers=headers)
             else:
                 request_url = self.protocol + '://' + self.adm_ip + self.basepath + self.endpoint + '/' + self.operation
                 headers = self.get_onprem_header(self.sessionid, '')
-            result = requests.post(request_url, json=request_payload, headers=headers)
+                result = requests.post(request_url, json=request_payload, headers=headers, verify=False)
             if self.error:
                 self.logger.critical(self.error)
                 return None, None
@@ -776,10 +786,11 @@ class migration(object):
             if self.adm_type == 'service':
                 request_url = 'https://' + self.adm_svc_url + self.basepath + self.endpoint + '/' + self.operation
                 headers = self.get_service_header(self.sessionid, 'true')
+                result = requests.post(request_url, json=request_payload, headers=headers)
             else:
                 request_url = self.protocol + '://' + self.adm_ip + self.basepath + self.endpoint + '/' + self.operation
                 headers = self.get_onprem_header(self.sessionid, '')
-            result = requests.post(request_url, json=request_payload, headers=headers)
+                result = requests.post(request_url, json=request_payload, headers=headers, verify=False)
 
             if self.error:
                 self.logger.critical(self.error)
@@ -810,11 +821,11 @@ class migration(object):
             if self.adm_type == 'service':
                 request_url = 'https://' + self.adm_svc_url + self.basepath + self.endpoint + '/' + self.operation
                 headers = self.get_service_header(self.sessionid, 'true')
+                result = requests.post(request_url, json=request_payload, headers=headers)
             else:
                 request_url = self.protocol + '://' + self.adm_ip + self.basepath + self.endpoint + '/' + self.operation
                 headers = self.get_onprem_header(self.sessionid, '')
-            
-            result = requests.post(request_url, json=request_payload, headers=headers)
+                result = requests.post(request_url, json=request_payload, headers=headers, verify=False)
             
             if self.error:
                 self.logger.critical(self.error)
@@ -855,12 +866,12 @@ class migration(object):
     def logout_from_adm_onprem(self):
         try:
             self.logger.info('Logging out from NetScaler Console.')
-            url = 'http://'+self.adm_ip+'/nitro/v1/config/login'
+            url = 'https://'+self.adm_ip+'/nitro/v1/config/login'
             method = 'DELETE'
             headers = {'Content-Type': 'application/json', 'Cookie': 'SESSID='+self.sessionid}
 
             # Send the request
-            response = self.send_curl_request(url, method, None, headers)
+            response = self.send_curl_request(url, method, None, headers, verify=False)
 
             # Check the response
             if response.status_code == 200 and response.json()['username'] == adm_username and response.json()['tenant_id'] != "":
@@ -911,7 +922,7 @@ class migration(object):
 
     def login_to_adm_onprem(self):
         try:
-            url = 'http://'+self.adm_ip+'/nitro/v1/config/login'
+            url = 'https://'+self.adm_ip+'/nitro/v1/config/login'
             method = 'POST'
             data = {"login": {"username": self.adm_username, "password": self.adm_password}}
             headers = {'Content-Type': 'application/json'}
@@ -919,7 +930,7 @@ class migration(object):
             payload = "object=" + json.dumps(data)
 
             # Send the request
-            response = self.send_curl_request(url, method, payload, headers)
+            response = self.send_curl_request(url, method, payload, headers, verify=False)
 
             # Check the response
             if response.status_code == 200:
@@ -935,7 +946,7 @@ class migration(object):
                 self.logger.critical("Login failed. Status code:", response.status_code)
         except Exception as e:
             self.error = "Error in logging in to NetScaler Console On-prem. Check the NetScaler Console IP, username and password. Make sure the NetScaler Console is reachable."
-            self.logger.critical(self.error)
+            self.logger.critical(e)
             raise e
     
     def login_to_adm(self):
@@ -956,16 +967,16 @@ class migration(object):
                 return cookie.value
         return None
 
-    def send_curl_request(self, url, method='GET', data=None, headers=None):
+    def send_curl_request(self, url, method='GET', data=None, headers=None, verify=True):
         if method.upper() == 'GET':
-            response = requests.get(url, params=data, headers=headers)
+            response = requests.get(url, params=data, headers=headers, verify=verify)
         elif method.upper() == 'POST':
             # For POST requests, the data parameter is used to send the payload
-            response = requests.post(url, data=data, headers=headers)
+            response = requests.post(url, data=data, headers=headers, verify=verify)
         elif method.upper() == 'PUT':
-            response = requests.put(url, data=data, headers=headers)
+            response = requests.put(url, data=data, headers=headers, verify=verify)
         elif method.upper() == 'DELETE':
-            response = requests.delete(url, data=data, headers=headers)
+            response = requests.delete(url, data=data, headers=headers, verify=verify)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
